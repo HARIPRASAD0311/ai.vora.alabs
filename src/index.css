@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+    background-color: #05070e;
+  }
+
+  body {
+    background-color: #05070e;
+    color: #f1f5f9;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* Custom subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #05070e;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #0ea5e9;
+  }
+}
+
+@layer utilities {
+  /* Ambient glow and glass classes */
+  .bg-glass {
+    background: rgba(11, 18, 33, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .bg-glass-card {
+    background: rgba(14, 23, 42, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .border-glass {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .border-glass-glow {
+    border: 1px solid rgba(0, 245, 212, 0.25);
+    box-shadow: 0 0 20px -5px rgba(0, 245, 212, 0.15);
+  }
+
+  .glow-cyan-text {
+    text-shadow: 0 0 25px rgba(6, 182, 212, 0.6);
+  }
+
+  .glow-teal-text {
+    text-shadow: 0 0 25px rgba(0, 245, 212, 0.6);
+  }
+
+  .glow-ambient-bg {
+    background: radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.15) 0%, rgba(5, 7, 14, 0) 70%);
+  }
+
+  /* Smooth card hover transitions */
+  .card-hover-fx {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .card-hover-fx:hover {
+    transform: translateY(-4px);
+    border-color: rgba(0, 245, 212, 0.35);
+    box-shadow: 0 12px 30px -10px rgba(0, 245, 212, 0.15);
+  }
+
+  /* Infinite marquee animation */
+  .animate-tech-marquee {
+    animation: tech-marquee 24s linear infinite;
+  }
+}
+
+@keyframes tech-marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-33.333333%);
+  }
+}
+
