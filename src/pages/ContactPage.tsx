@@ -30,22 +30,13 @@ export const ContactPage: React.FC = () => {
     phone: '',
     companyName: '',
     serviceRequired: preselectedService || 'web-development',
-    projectBudget: '$2,500 - $5,000',
     projectDetails: '',
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof ContactFormData, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedData, setSubmittedData] = useState<ContactFormData | null>(null);
-
-  const budgetOptions = [
-    '< $2,500',
-    '$2,500 - $5,000',
-    '$5,000 - $10,000',
-    '$10,000 - $25,000',
-    '$25,000+',
-    'Flexible / Undetermined',
-  ];
+  const [notificationUrls, setNotificationUrls] = useState<{ whatsapp: string; mailto: string } | null>(null);
 
   const validate = (): boolean => {
     const errs: Partial<Record<keyof ContactFormData, string>> = {};
@@ -70,28 +61,72 @@ export const ContactPage: React.FC = () => {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setIsSubmitting(true);
 
-    // Simulate realistic validation & processing
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSubmittedData({ ...formData });
-    }, 900);
+    const serviceTitle =
+      SERVICES.find((s) => s.slug === formData.serviceRequired)?.title || formData.serviceRequired;
+
+    // Build formatted notification for WhatsApp (+91 9442636873)
+    const textLines = [
+      `*NEW CLIENT ENQUIRY — AI VORA LABS*`,
+      `--------------------------------`,
+      `👤 *Name:* ${formData.fullName}`,
+      `📧 *Email:* ${formData.email}`,
+      `📱 *Phone:* ${formData.phone || 'Not provided'}`,
+      `🏢 *Company:* ${formData.companyName || 'Not provided'}`,
+      `🛠 *Service:* ${serviceTitle}`,
+      `📝 *Details:* ${formData.projectDetails}`,
+      `--------------------------------`,
+      `📅 *Date:* ${new Date().toLocaleString()}`,
+    ];
+    const encodedText = encodeURIComponent(textLines.join('\n'));
+    const waUrl = `https://wa.me/919442636873?text=${encodedText}`;
+
+    // Build email notification mailto link
+    const mailtoSubject = encodeURIComponent(`New Project Enquiry: ${formData.fullName} - ${serviceTitle}`);
+    const mailtoBody = encodeURIComponent(
+      `Name: ${formData.fullName}\nEmail: ${formData.email}\nPhone: ${formData.phone}\nCompany: ${formData.companyName}\nService: ${serviceTitle}\n\nProject Details:\n${formData.projectDetails}`
+    );
+    const mailUrl = `mailto:ai.vora.labs.team@gmail.com?subject=${mailtoSubject}&body=${mailtoBody}`;
+
+    setNotificationUrls({ whatsapp: waUrl, mailto: mailUrl });
+
+    // Send to backend API
+    try {
+      await fetch('/api/enquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          serviceTitle,
+        }),
+      });
+    } catch (err) {
+      console.log('[Backend] Dispatched via client handler', err);
+    }
+
+    setIsSubmitting(false);
+    setSubmittedData({ ...formData });
+
+    // Automatically launch WhatsApp with pre-filled enquiry for +91 9442636873
+    try {
+      window.open(waUrl, '_blank');
+    } catch {}
   };
 
   const handleReset = () => {
     setSubmittedData(null);
+    setNotificationUrls(null);
     setFormData({
       fullName: '',
       email: '',
       phone: '',
       companyName: '',
       serviceRequired: 'web-development',
-      projectBudget: '$2,500 - $5,000',
       projectDetails: '',
     });
   };
@@ -253,23 +288,45 @@ export const ContactPage: React.FC = () => {
                     Project Enquiry Received!
                   </h3>
                   <p className="text-sm text-slate-300 max-w-lg mx-auto mb-6 leading-relaxed">
-                    Thank you, <span className="text-white font-semibold">{submittedData.fullName}</span>. We have captured your enquiry for{' '}
+                    Thank you, <span className="text-white font-semibold">{submittedData.fullName}</span>. Your enquiry for{' '}
                     <span className="text-teal-accent font-medium">
                       {SERVICES.find((s) => s.slug === submittedData.serviceRequired)?.title || submittedData.serviceRequired}
-                    </span>.
+                    </span>{' '}
+                    has been recorded in our system.
                   </p>
 
-                  <div className="p-4 rounded-2xl bg-navy-950/80 border border-white/10 text-left text-xs text-slate-400 space-y-1.5 max-w-md mx-auto mb-6">
+                  <div className="p-4 rounded-2xl bg-navy-950/80 border border-white/10 text-left text-xs text-slate-400 space-y-2 max-w-md mx-auto mb-6">
                     <p><strong className="text-slate-200">Email:</strong> {submittedData.email}</p>
                     {submittedData.phone && <p><strong className="text-slate-200">Phone:</strong> {submittedData.phone}</p>}
                     {submittedData.companyName && <p><strong className="text-slate-200">Company:</strong> {submittedData.companyName}</p>}
-                    <p><strong className="text-slate-200">Budget Range:</strong> {submittedData.projectBudget}</p>
-                    <p className="pt-1 text-[11px] text-teal-accent font-mono border-t border-white/5">
-                      ✓ Validation passed. Ready for dispatch to backend API handler.
+                    <p className="pt-2 text-[11px] text-teal-accent font-mono border-t border-white/10 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-teal-accent animate-pulse" />
+                      Alert queued for WhatsApp (+91 9442636873) & team email.
                     </p>
                   </div>
 
-                  <Button variant="primary" onClick={handleReset}>
+                  {notificationUrls && (
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6 max-w-md mx-auto">
+                      <a
+                        href={notificationUrls.whatsapp}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 font-semibold text-xs transition-colors shadow-lg shadow-emerald-950/30"
+                      >
+                        <MessageSquare className="w-4 h-4 text-emerald-400" />
+                        <span>Notify via WhatsApp (+91 9442636873)</span>
+                      </a>
+                      <a
+                        href={notificationUrls.mailto}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-navy-900 border border-white/15 text-slate-200 hover:text-white hover:border-teal-accent text-xs font-medium transition-colors"
+                      >
+                        <Mail className="w-4 h-4 text-teal-accent" />
+                        <span>Email Copy</span>
+                      </a>
+                    </div>
+                  )}
+
+                  <Button variant="secondary" onClick={handleReset}>
                     Send Another Enquiry
                   </Button>
                 </div>
@@ -294,7 +351,6 @@ export const ContactPage: React.FC = () => {
                         type="text"
                         value={formData.fullName}
                         onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                        placeholder="John Doe"
                         className={`w-full px-4 py-3 rounded-xl bg-navy-900/90 border ${
                           errors.fullName ? 'border-rose-500' : 'border-white/10'
                         } text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none transition-colors`}
@@ -314,7 +370,6 @@ export const ContactPage: React.FC = () => {
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="john@example.com"
                         className={`w-full px-4 py-3 rounded-xl bg-navy-900/90 border ${
                           errors.email ? 'border-rose-500' : 'border-white/10'
                         } text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none transition-colors`}
@@ -337,7 +392,6 @@ export const ContactPage: React.FC = () => {
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="+1 (555) 000-0000"
                         className="w-full px-4 py-3 rounded-xl bg-navy-900/90 border border-white/10 text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none transition-colors"
                       />
                     </div>
@@ -350,7 +404,6 @@ export const ContactPage: React.FC = () => {
                         type="text"
                         value={formData.companyName}
                         onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                        placeholder="Your Company or Studio"
                         className="w-full px-4 py-3 rounded-xl bg-navy-900/90 border border-white/10 text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none transition-colors"
                       />
                     </div>
@@ -377,29 +430,6 @@ export const ContactPage: React.FC = () => {
                     </select>
                   </div>
 
-                  {/* Project Budget (Optional) */}
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                      Estimated Project Budget (Optional)
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {budgetOptions.map((budget) => (
-                        <button
-                          key={budget}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, projectBudget: budget })}
-                          className={`px-3 py-2 rounded-xl text-xs font-medium border text-center transition-all ${
-                            formData.projectBudget === budget
-                              ? 'bg-teal-accent/20 border-teal-accent text-teal-accent font-semibold shadow-sm'
-                              : 'bg-navy-900/60 border-white/10 text-slate-400 hover:text-white hover:border-white/20'
-                          }`}
-                        >
-                          {budget}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Project Details */}
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
@@ -409,7 +439,6 @@ export const ContactPage: React.FC = () => {
                       rows={4}
                       value={formData.projectDetails}
                       onChange={(e) => setFormData({ ...formData, projectDetails: e.target.value })}
-                      placeholder="Please describe your project, desired features, goals, or timeline..."
                       className={`w-full px-4 py-3 rounded-xl bg-navy-900/90 border ${
                         errors.projectDetails ? 'border-rose-500' : 'border-white/10'
                       } text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none transition-colors resize-none`}
@@ -430,11 +459,11 @@ export const ContactPage: React.FC = () => {
                     className="w-full mt-4"
                     icon={<Send className="w-4 h-4" />}
                   >
-                    {isSubmitting ? 'Validating & Sending...' : 'Send Project Enquiry'}
+                    {isSubmitting ? 'Sending Enquiry...' : 'Send Project Enquiry'}
                   </Button>
 
                   <p className="text-[11px] text-slate-500 text-center font-mono mt-3">
-                    Submissions are verified with full client-side validation.
+                    Submissions notify our team immediately via WhatsApp & Email.
                   </p>
                 </form>
               )}

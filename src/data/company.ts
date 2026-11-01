@@ -12,7 +12,7 @@ export const COMPANY_INFO = {
     phone: '+91 93610 76876',
     whatsapp: '+91 93610 76876',
     location: 'Global Remote / Available Worldwide',
-    workingHours: 'Mon - Fri: 9:00 AM - 7:00 PM EST',
+    workingHours: 'Mon - Fri: 9:00 AM - 7:00 PM',
   },
   socials: {
     linkedin: 'https://linkedin.com/company/ai-vora-labs',

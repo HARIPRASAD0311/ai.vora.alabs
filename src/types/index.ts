@@ -52,7 +52,7 @@ export interface ContactFormData {
   phone: string;
   companyName: string;
   serviceRequired: string;
-  projectBudget: string;
+  projectBudget?: string;
   projectDetails: string;
 }
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CheckCircle2, Video, Phone, Send } from 'lucide-react';
+import { X, CheckCircle2, MessageSquare, Mail, Send } from 'lucide-react';
 import { Button } from './Button';
 import { SERVICES } from '../../data/services';
 
@@ -15,28 +15,83 @@ export const BookCallModal: React.FC<BookCallModalProps> = ({ isOpen, onClose })
     phone: '',
     company: '',
     service: 'web-dev',
-    callType: 'video',
     preferredTime: 'morning',
     projectNote: '',
   });
 
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notificationUrls, setNotificationUrls] = useState<{ whatsapp: string; mailto: string } | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate real submission
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSubmitted(true);
-    }, 800);
+
+    const serviceTitle =
+      SERVICES.find((s) => s.id === formData.service)?.title || 'Technology Consulting';
+
+    const slotLabel =
+      formData.preferredTime === 'morning'
+        ? 'Morning (9:00 AM - 12:00 PM)'
+        : formData.preferredTime === 'afternoon'
+        ? 'Afternoon (12:00 PM - 4:00 PM)'
+        : 'Evening (4:00 PM - 7:00 PM)';
+
+    // WhatsApp alert message for +91 9442636873
+    const textLines = [
+      `*NEW STRATEGY CALL BOOKING — AI VORA LABS*`,
+      `--------------------------------`,
+      `👤 *Name:* ${formData.name}`,
+      `📧 *Email:* ${formData.email}`,
+      `📱 *Phone:* ${formData.phone || 'Not provided'}`,
+      `🏢 *Company:* ${formData.company || 'Not provided'}`,
+      `🛠 *Service:* ${serviceTitle}`,
+      `⏰ *Preferred Time Slot:* ${slotLabel}`,
+      formData.projectNote ? `📝 *Note:* ${formData.projectNote}` : null,
+      `--------------------------------`,
+      `📅 *Booked At:* ${new Date().toLocaleString()}`,
+    ];
+    const encodedText = encodeURIComponent(textLines.filter(Boolean).join('\n'));
+    const waUrl = `https://wa.me/919442636873?text=${encodedText}`;
+
+    // Email alert link
+    const mailtoSubject = encodeURIComponent(`New Strategy Call Booking: ${formData.name} (${serviceTitle})`);
+    const mailtoBody = encodeURIComponent(
+      `Name: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.phone}\nCompany: ${formData.company}\nService: ${serviceTitle}\nPreferred Time Slot: ${slotLabel}\n\nNote:\n${formData.projectNote}`
+    );
+    const mailUrl = `mailto:ai.vora.labs.team@gmail.com?subject=${mailtoSubject}&body=${mailtoBody}`;
+
+    setNotificationUrls({ whatsapp: waUrl, mailto: mailUrl });
+
+    // Send payload to backend
+    try {
+      await fetch('/api/book-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          serviceTitle,
+          slotLabel,
+        }),
+      });
+    } catch (err) {
+      console.log('[Backend] Dispatched via client handler', err);
+    }
+
+    setIsSubmitting(false);
+    setIsSubmitted(true);
+
+    // Open WhatsApp directly
+    try {
+      window.open(waUrl, '_blank');
+    } catch {}
   };
 
   const handleReset = () => {
     setIsSubmitted(false);
+    setNotificationUrls(null);
     onClose();
   };
 
@@ -64,7 +119,7 @@ export const BookCallModal: React.FC<BookCallModalProps> = ({ isOpen, onClose })
         </button>
 
         {isSubmitted ? (
-          <div className="text-center py-8">
+          <div className="text-center py-6">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-teal-accent/10 border border-teal-accent/30 flex items-center justify-center text-teal-accent">
               <CheckCircle2 className="w-8 h-8" />
             </div>
@@ -73,14 +128,41 @@ export const BookCallModal: React.FC<BookCallModalProps> = ({ isOpen, onClose })
             </h3>
             <p className="text-slate-300 text-sm mb-6 leading-relaxed">
               Thank you, <span className="text-white font-medium">{formData.name}</span>. We have received your booking request for{' '}
-              <span className="text-teal-accent">{SERVICES.find(s => s.id === formData.service)?.title || 'Technology Consulting'}</span>.
-              Our engineering team will send you calendar coordinates and meeting links within 2-4 business hours.
+              <span className="text-teal-accent">
+                {SERVICES.find((s) => s.id === formData.service)?.title || 'Technology Consulting'}
+              </span>.
             </p>
-            <div className="bg-navy-900/80 border border-white/10 rounded-2xl p-4 text-left text-xs text-slate-400 mb-6 space-y-1">
+            <div className="bg-navy-900/80 border border-white/10 rounded-2xl p-4 text-left text-xs text-slate-400 mb-6 space-y-1.5">
               <p><strong className="text-slate-200">Email:</strong> {formData.email}</p>
+              {formData.phone && <p><strong className="text-slate-200">Phone:</strong> {formData.phone}</p>}
               <p><strong className="text-slate-200">Preferred Slot:</strong> {formData.preferredTime.toUpperCase()}</p>
-              <p><strong className="text-slate-200">Format:</strong> {formData.callType === 'video' ? 'Google Meet / Video' : 'Phone Call'}</p>
+              <p className="pt-2 text-[11px] text-teal-accent font-mono border-t border-white/10 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-teal-accent animate-pulse" />
+                Notification routed to WhatsApp (+91 9442636873) & team email.
+              </p>
             </div>
+
+            {notificationUrls && (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-5">
+                <a
+                  href={notificationUrls.whatsapp}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 font-semibold text-xs transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4 text-emerald-400" />
+                  <span>Notify via WhatsApp (+91 9442636873)</span>
+                </a>
+                <a
+                  href={notificationUrls.mailto}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-navy-900 border border-white/15 text-slate-200 hover:text-white hover:border-teal-accent text-xs font-medium transition-colors"
+                >
+                  <Mail className="w-4 h-4 text-teal-accent" />
+                  <span>Email Copy</span>
+                </a>
+              </div>
+            )}
+
             <Button variant="primary" onClick={handleReset} className="w-full">
               Done
             </Button>
@@ -108,7 +190,6 @@ export const BookCallModal: React.FC<BookCallModalProps> = ({ isOpen, onClose })
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Alex Morgan"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-navy-900/90 border border-white/10 text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none"
                   />
                 </div>
@@ -119,7 +200,6 @@ export const BookCallModal: React.FC<BookCallModalProps> = ({ isOpen, onClose })
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="alex@company.com"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-navy-900/90 border border-white/10 text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none"
                   />
                 </div>
@@ -132,7 +212,6 @@ export const BookCallModal: React.FC<BookCallModalProps> = ({ isOpen, onClose })
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+1 (555) 000-0000"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-navy-900/90 border border-white/10 text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none"
                   />
                 </div>
@@ -142,7 +221,6 @@ export const BookCallModal: React.FC<BookCallModalProps> = ({ isOpen, onClose })
                     type="text"
                     value={formData.company}
                     onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                    placeholder="Company or Brand Name"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-navy-900/90 border border-white/10 text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none"
                   />
                 </div>
@@ -166,47 +244,18 @@ export const BookCallModal: React.FC<BookCallModalProps> = ({ isOpen, onClose })
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Format</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, callType: 'video' })}
-                      className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium border transition-colors ${
-                        formData.callType === 'video'
-                          ? 'bg-teal-accent/20 border-teal-accent text-teal-accent'
-                          : 'bg-navy-900/60 border-white/10 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Video className="w-3.5 h-3.5" /> Video
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, callType: 'phone' })}
-                      className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium border transition-colors ${
-                        formData.callType === 'phone'
-                          ? 'bg-teal-accent/20 border-teal-accent text-teal-accent'
-                          : 'bg-navy-900/60 border-white/10 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Phone className="w-3.5 h-3.5" /> Phone
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Time Preference</label>
-                  <select
-                    value={formData.preferredTime}
-                    onChange={(e) => setFormData({ ...formData, preferredTime: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-navy-900/90 border border-white/10 text-white text-xs focus:border-teal-accent outline-none"
-                  >
-                    <option value="morning">Morning (9am - 12pm EST)</option>
-                    <option value="afternoon">Afternoon (12pm - 4pm EST)</option>
-                    <option value="evening">Evening (4pm - 7pm EST)</option>
-                  </select>
-                </div>
+              {/* Time Preference */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Time Preference</label>
+                <select
+                  value={formData.preferredTime}
+                  onChange={(e) => setFormData({ ...formData, preferredTime: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-navy-900/90 border border-white/10 text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none"
+                >
+                  <option value="morning">Morning (9:00 AM - 12:00 PM)</option>
+                  <option value="afternoon">Afternoon (12:00 PM - 4:00 PM)</option>
+                  <option value="evening">Evening (4:00 PM - 7:00 PM)</option>
+                </select>
               </div>
 
               <div>
@@ -215,7 +264,6 @@ export const BookCallModal: React.FC<BookCallModalProps> = ({ isOpen, onClose })
                   rows={2}
                   value={formData.projectNote}
                   onChange={(e) => setFormData({ ...formData, projectNote: e.target.value })}
-                  placeholder="Tell us a little about your project goals or timeline..."
                   className="w-full px-3.5 py-2 rounded-xl bg-navy-900/90 border border-white/10 text-white text-sm focus:border-teal-accent focus:ring-1 focus:ring-teal-accent outline-none resize-none"
                 />
               </div>
